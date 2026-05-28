@@ -1,0 +1,26 @@
+{
+  "name": "x-044-isp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "client": "npm --prefix client run dev",
+    "server": "npm --prefix server run dev",
+    "gateway": "cd gateway && go run main.go",
+    "dev": "concurrently -n CLIENT,SERVER,GATEWAY \"npm run client\" \"npm run server\" \"npm run gateway\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ENG-Oroko/X-044-ISP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ENG-Oroko/X-044-ISP/issues"
+  },
+  "homepage": "https://github.com/ENG-Oroko/X-044-ISP#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.0"
+  }
+}

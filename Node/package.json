@@ -5,27 +5,36 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node src/server.js",
+    "dev": "tsx watch src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "@types/nodemailer": "^8.0.0",
     "nodemon": "^3.1.14",
-    "prisma": "^7.8.0"
+    "tsx": "^4.22.3"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",
+    "axios": "^1.16.1",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "net-snmp": "^3.26.3",
+    "node-routeros": "^1.6.8",
+    "nodemailer": "^8.0.9",
+    "prisma": "^7.8.0",
+    "ssh2": "^1.17.0",
+    "zod": "^4.4.3"
   }
 }

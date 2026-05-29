@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ISP_ADMIN
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+model Tenant {
+  id String @id @default(uuid())
+
+  name String
+  slug String @unique
+
+  email String? @unique
+  phone String?
+
+  status TenantStatus @default(TRIAL)
+
+  isActive Boolean @default(true)
+
+  // Branding
+  logo      String?
+  website   String?
+  address   String?
+
+  // Subscription
+  trialEndsAt DateTime?
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@index([slug])
+}
+
+model User {
+  id String @id @default(uuid())
+
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  fullName String
+
+  email String
+  phone String?
+
+  passwordHash String
+
+  role   Role       @default(CUSTOMER)
+  status UserStatus @default(PENDING)
+
+  isEmailVerified Boolean @default(false)
+  isPhoneVerified Boolean @default(false)
+
+  // OTP
+  otpCode      String?
+  otpExpiresAt DateTime?
+
+  // Security
+  lastLoginAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+}

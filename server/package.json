@@ -28,7 +28,7 @@
     "morgan": "^1.10.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "resend": "^6.12.3",
@@ -38,8 +38,11 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3",
-    "tsx": "^4.22.3"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
   }
 }

@@ -7,7 +7,10 @@ import {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // =========================
+    // SAFE BODY ACCESS
+    // =========================
+    const { email, password } = req.body || {};
 
     if (!email || !password) {
       return res.status(400).json({
@@ -17,7 +20,7 @@ export const login = async (req, res) => {
     }
 
     // =========================
-    // FIND USER (ALL ROLES)
+    // FIND USER
     // =========================
     const user = await prisma.user.findFirst({
       where: { email },
@@ -41,9 +44,28 @@ export const login = async (req, res) => {
     }
 
     // =========================
-    // CHECK PASSWORD
+    // SAFETY CHECK (IMPORTANT)
     // =========================
-    const match = await comparePassword(password, user.passwordHash);
+    if (!user.passwordHash) {
+      return res.status(500).json({
+        success: false,
+        message: "User password not set in database",
+      });
+    }
+
+    // =========================
+    // CHECK PASSWORD (ASYNC SAFE)
+    // =========================
+    let match;
+    try {
+      match = await comparePassword(password, user.passwordHash);
+    } catch (err) {
+      console.error("Bcrypt error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Password verification failed",
+      });
+    }
 
     if (!match) {
       return res.status(401).json({
@@ -53,7 +75,7 @@ export const login = async (req, res) => {
     }
 
     // =========================
-    // BLOCK INACTIVE USERS (OPTIONAL)
+    // STATUS CHECK
     // =========================
     if (user.status !== "ACTIVE") {
       return res.status(403).json({
@@ -63,17 +85,21 @@ export const login = async (req, res) => {
     }
 
     // =========================
-    // LAST LOGIN (NON-BLOCKING)
+    // UPDATE LAST LOGIN (PROPER ASYNC AWAIT)
     // =========================
     const now = new Date();
 
-    prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: now },
-    }).catch(() => {});
+    await prisma.user
+      .update({
+        where: { id: user.id },
+        data: { lastLoginAt: now },
+      })
+      .catch((err) => {
+        console.error("Failed to update lastLoginAt:", err);
+      });
 
     // =========================
-    // TOKEN PAYLOAD
+    // TOKENS
     // =========================
     const payload = {
       id: user.id,
@@ -115,14 +141,11 @@ export const login = async (req, res) => {
         role: user.role,
         tenantId: user.tenantId,
         fullName: `${user.firstName} ${user.surName}`,
-
         lastLoginAt: now.toISOString(),
-        loginDate: now.toLocaleDateString("en-GB"),
-        loginTime: now.toLocaleTimeString("en-GB"),
       },
     });
   } catch (error) {
-    console.log("Login Error:", error);
+    console.error("LOGIN ERROR FULL:", error);
 
     return res.status(500).json({
       success: false,

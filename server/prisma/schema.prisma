@@ -138,14 +138,11 @@ model SubscriptionPlan {
   id String @id @default(uuid())
 
   name String
-
   description String?
 
   price Decimal @db.Decimal(10,2)
 
   durationDays Int
-
-  maxClients Int?
 
   isActive Boolean @default(true)
 
@@ -189,7 +186,7 @@ model MpesaPayment {
 
   subscriptionId String
   subscription TenantSubscription @relation(fields: [subscriptionId], references: [id])
-
+  planId String?  
   amount Decimal @db.Decimal(10,2)
 
   phoneNumber String

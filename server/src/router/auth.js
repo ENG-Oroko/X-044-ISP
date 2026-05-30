@@ -3,6 +3,10 @@ import { login } from "../controllers/auth/login.js";
 import { logout } from "../controllers/auth/logout.js";
 import { refreshToken } from "../controllers/auth/refreshToken.js";
 import { registerTenantAdmin } from "../controllers/auth/register.js";
+import { forgotPassword } from "../controllers/auth/forgotPassword.js";
+import { resetPassword } from "../controllers/auth/resetPassword.js";
+import { changePassword } from "../controllers/auth/changePassword.js";
+import { protect } from "../middleware/auth.middleware.js";
 import {
   loginRateLimiter,
   logoutRateLimiter,
@@ -18,5 +22,8 @@ router.post("/login", loginRateLimiter, login);
 router.post("/logout", logoutRateLimiter, logout);
 router.post("/refresh-token", refreshToken);
 router.post("/register-tenant-admin", registerTenantAdmin);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
+router.post("/change-password", changePassword);
 
 export default router;

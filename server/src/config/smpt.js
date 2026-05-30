@@ -1,22 +1,21 @@
 import nodemailer from "nodemailer";
 
-export const transporter =
-  nodemailer.createTransport({
-    host:
-      process.env.SMTP_HOST,
+if (
+  !process.env.SMTP_HOST ||
+  !process.env.SMTP_PORT ||
+  !process.env.SMTP_EMAIL ||
+  !process.env.SMTP_PASSWORD
+) {
+  throw new Error("Missing SMTP environment variables");
+}
 
-    port:
-      Number(
-        process.env.SMTP_PORT
-      ),
+export const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
 
-    secure: false,
-
-    auth: {
-      user:
-        process.env.SMTP_EMAIL,
-
-      pass:
-        process.env.SMTP_PASSWORD,
-    },
-  });
+  auth: {
+    user: process.env.SMTP_EMAIL,
+    pass: process.env.SMTP_PASSWORD,
+  },
+});

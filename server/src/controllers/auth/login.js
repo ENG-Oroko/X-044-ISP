@@ -7,7 +7,7 @@ import {
 
 export const login = async (req, res) => {
   try {
-    const { tenantId, email, password } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -16,47 +16,22 @@ export const login = async (req, res) => {
       });
     }
 
-    let user = null;
-
-    // SUPER ADMIN LOGIN
-    if (!tenantId) {
-      user = await prisma.user.findFirst({
-        where: {
-          email,
-          role: "SUPER_ADMIN",
-        },
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          passwordHash: true,
-          role: true,
-          status: true,
-          tenantId: true,
-        },
-      });
-    }
-
-    // TENANT USER LOGIN
-    if (tenantId) {
-      user = await prisma.user.findUnique({
-        where: {
-          tenantId_email: {
-            tenantId,
-            email,
-          },
-        },
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          passwordHash: true,
-          role: true,
-          status: true,
-          tenantId: true,
-        },
-      });
-    }
+    // =========================
+    // FIND USER (ALL ROLES)
+    // =========================
+    const user = await prisma.user.findFirst({
+      where: { email },
+      select: {
+        id: true,
+        firstName: true,
+        surName: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        status: true,
+        tenantId: true,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -65,28 +40,53 @@ export const login = async (req, res) => {
       });
     }
 
-    const isMatch = await comparePassword(
-      password,
-      user.passwordHash
-    );
+    // =========================
+    // CHECK PASSWORD
+    // =========================
+    const match = await comparePassword(password, user.passwordHash);
 
-    if (!isMatch) {
+    if (!match) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
     }
 
-    const accessToken = generateAccessToken({
+    // =========================
+    // BLOCK INACTIVE USERS (OPTIONAL)
+    // =========================
+    if (user.status !== "ACTIVE") {
+      return res.status(403).json({
+        success: false,
+        message: "Account not active",
+      });
+    }
+
+    // =========================
+    // LAST LOGIN (NON-BLOCKING)
+    // =========================
+    const now = new Date();
+
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: now },
+    }).catch(() => {});
+
+    // =========================
+    // TOKEN PAYLOAD
+    // =========================
+    const payload = {
       id: user.id,
       role: user.role,
       tenantId: user.tenantId,
-    });
+    };
 
-    const refreshToken = generateRefreshToken({
-      id: user.id,
-    });
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken({ id: user.id });
 
+    // =========================
+    // COOKIES
+    // =========================
     res.cookie("access_token", accessToken, {
       httpOnly: true,
       secure: false,
@@ -103,12 +103,23 @@ export const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    delete user.passwordHash;
-
+    // =========================
+    // RESPONSE
+    // =========================
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+        fullName: `${user.firstName} ${user.surName}`,
+
+        lastLoginAt: now.toISOString(),
+        loginDate: now.toLocaleDateString("en-GB"),
+        loginTime: now.toLocaleTimeString("en-GB"),
+      },
     });
   } catch (error) {
     console.log("Login Error:", error);

@@ -9,76 +9,122 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
-  ISP_ADMIN
-  CUSTOMER
+  TENANT_ADMIN
+  CLIENT
 }
 
 enum UserStatus {
+  PENDING
   ACTIVE
   SUSPENDED
-  PENDING
 }
 
 enum TenantStatus {
+  PENDING
   ACTIVE
+  EXPIRED
   SUSPENDED
-  TRIAL
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
 
 model Tenant {
   id String @id @default(uuid())
 
+  // ======================
+  // BASIC INFO (REQUIRED)
+  // ======================
   name String
   slug String @unique
 
-  email String? @unique
-  phone String?
+  email String @unique
+  phone String
 
-  status TenantStatus @default(TRIAL)
+  // ======================
+  // OPTIONAL PROFILE INFO
+  // ======================
+  logo String?
+  website String?
+  address String?
 
-  isActive Boolean @default(true)
+  // ======================
+  // SYSTEM STATUS
+  // ======================
+  status TenantStatus @default(PENDING)
+  isActive Boolean @default(false)
 
-  // Branding
-  logo      String?
-  website   String?
-  address   String?
+  // ======================
+  // SUBSCRIPTION (CURRENT)
+  // ======================
+  currentPlanId String?
+  currentPlan SubscriptionPlan? @relation("CurrentPlan", fields: [currentPlanId], references: [id])
 
-  // Subscription
-  trialEndsAt DateTime?
-  expiresAt   DateTime?
+  expiresAt DateTime?
 
+  // ======================
+  // SAFETY + TRACKING (NEW)
+  // ======================
+  onboardingCompleted Boolean @default(false)
+  lastPaymentAt DateTime?
+
+  // ======================
+  // RELATIONS
+  // ======================
+  users User[]
+  subscriptions TenantSubscription[]
+  payments MpesaPayment[]
+
+  // ======================
+  // AUDIT FIELDS
+  // ======================
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
-
   @@index([slug])
+  @@index([email])
 }
 
 model User {
   id String @id @default(uuid())
 
   tenantId String?
-  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  fullName String
+  firstName String
+  surName String
 
   email String
   phone String?
 
   passwordHash String
 
-  role   Role       @default(CUSTOMER)
+  avatar String?
+
+  role Role @default(CLIENT)
+
   status UserStatus @default(PENDING)
 
-  isEmailVerified Boolean @default(false)
-  isPhoneVerified Boolean @default(false)
+  isVerified Boolean @default(false)
 
-  // OTP
-  otpCode      String?
+  mustChangePassword Boolean @default(false)
+
+  resetPasswordOtp String?
+  resetPasswordOtpExpiry DateTime?
+
+  otpCode String?
   otpExpiresAt DateTime?
 
-  // Security
   lastLoginAt DateTime?
 
   createdAt DateTime @default(now())
@@ -86,5 +132,83 @@ model User {
 
   @@unique([tenantId, email])
   @@index([tenantId])
-  @@index([email])
+}
+
+model SubscriptionPlan {
+  id String @id @default(uuid())
+
+  name String
+
+  description String?
+
+  price Decimal @db.Decimal(10,2)
+
+  durationDays Int
+
+  maxClients Int?
+
+  isActive Boolean @default(true)
+
+  subscriptions TenantSubscription[]
+
+  currentTenants Tenant[] @relation("CurrentPlan")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TenantSubscription {
+  id String @id @default(uuid())
+
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  planId String
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  startDate DateTime
+
+  endDate DateTime
+
+  status SubscriptionStatus @default(PENDING)
+
+  payments MpesaPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([planId])
+}
+
+model MpesaPayment {
+  id String @id @default(uuid())
+
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  subscriptionId String
+  subscription TenantSubscription @relation(fields: [subscriptionId], references: [id])
+
+  amount Decimal @db.Decimal(10,2)
+
+  phoneNumber String
+
+  checkoutRequestId String? @unique
+  merchantRequestId String?
+
+  mpesaReceiptNumber String? @unique
+
+  resultCode Int?
+  resultDesc String?
+
+  status PaymentStatus @default(PENDING)
+
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([subscriptionId])
 }

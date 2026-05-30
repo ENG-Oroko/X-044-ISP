@@ -28,7 +28,7 @@ app.use(morgan("dev"));
 
 /* ---------------- Routes ---------------- */
 
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
 
 /* ---------------- Health Check ---------------- */

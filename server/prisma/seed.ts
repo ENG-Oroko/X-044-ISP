@@ -3,84 +3,113 @@ import { Pool } from "pg";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-import { hashPassword } from "../src/utils/hashPassword";
-import { generatePassword } from "../src/utils/generatePassword";
-import { sendEmail } from "../src/config/smpt";
-import { sendPasswordTemplate } from "../src/templates/sendPasswordTemplate";
+import { hashPassword } from "../src/utils/hashPassword.js";
+import { generatePassword } from "../src/utils/generatePassword.js";
+import { transporter } from "../src/config/smpt.js";
+import { sendPasswordTemplate } from "../src/templates/sendPasswordTemplate.js";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 async function main() {
-  const ADMIN_NAME = process.env.ADMIN_NAME!;
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL!;
-  const ADMIN_PHONE = process.env.ADMIN_PHONE!;
+  const ADMIN_FIRST_NAME = process.env.ADMIN_FIRST_NAME;
+  const ADMIN_SUR_NAME = process.env.ADMIN_SUR_NAME;
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+  const ADMIN_PHONE = process.env.ADMIN_PHONE;
 
-  if (!ADMIN_NAME || !ADMIN_EMAIL || !ADMIN_PHONE) {
-    throw new Error("Missing ADMIN_NAME, ADMIN_EMAIL or ADMIN_PHONE in .env");
+  if (
+    !ADMIN_FIRST_NAME ||
+    !ADMIN_SUR_NAME ||
+    !ADMIN_EMAIL ||
+    !ADMIN_PHONE
+  ) {
+    throw new Error(
+      "Missing ADMIN_FIRST_NAME, ADMIN_SUR_NAME, ADMIN_EMAIL or ADMIN_PHONE in .env"
+    );
   }
 
   const existingAdmin = await prisma.user.findFirst({
     where: {
       email: ADMIN_EMAIL,
-      tenantId: null,
+      role: "SUPER_ADMIN",
     },
   });
 
   if (existingAdmin) {
-    console.log("⚠️ Admin already exists");
+    console.log("⚠️ SUPER ADMIN already exists");
     return;
   }
 
-  // 1. generate password
+  // Generate random password
   const plainPassword = generatePassword();
 
-  // 2. hash password
-  const hashedPassword = await hashPassword(plainPassword);
+  // Hash password
+  const passwordHash = await hashPassword(plainPassword);
 
-  // 3. create admin
+  // Create Super Admin
   const admin = await prisma.user.create({
     data: {
-      fullName: ADMIN_NAME,
+      firstName: ADMIN_FIRST_NAME,
+      surName: ADMIN_SUR_NAME,
+
       email: ADMIN_EMAIL,
       phone: ADMIN_PHONE,
-      passwordHash: hashedPassword,
+
+      passwordHash,
+
       role: "SUPER_ADMIN",
       status: "ACTIVE",
-      isEmailVerified: true,
+
+      isVerified: true,
+
       tenantId: null,
     },
   });
 
-  // 4. send email using template
   try {
-    await sendEmail({
+    await transporter.sendMail({
       to: admin.email,
-      subject: "Your Admin Account Password",
+      subject: "Your Super Admin Account",
+
       html: sendPasswordTemplate({
-        firstName: admin.fullName,
+        firstName: admin.firstName,
         email: admin.email,
         password: plainPassword,
-        loginUrl: process.env.LOGIN_URL || "http://localhost:3000/login",
+        loginUrl:
+          process.env.LOGIN_URL ||
+          "http://localhost:5173/login",
       }),
     });
 
-    console.log("📧 Email sent successfully");
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("⚠️ Email failed:", errorMessage);
-    console.log("🔑 PASSWORD BACKUP:", plainPassword);
+    console.log("📧 Admin credentials sent successfully");
+  } catch (error) {
+    console.error("⚠️ Failed to send email");
+
+    console.log("\n================================");
+    console.log("SUPER ADMIN LOGIN DETAILS");
+    console.log("================================");
+    console.log(`Email: ${admin.email}`);
+    console.log(`Password: ${plainPassword}`);
+    console.log("================================\n");
   }
 
-  console.log("✅ SUPER ADMIN CREATED");
+  console.log("\n✅ SUPER ADMIN CREATED");
+  console.log(`👤 ${admin.firstName} ${admin.surName}`);
   console.log(`📧 ${admin.email}`);
-  console.log(`🔐 ${admin.role}`);
+  console.log(`📱 ${admin.phone}`);
+  console.log(`🔐 ${admin.role}\n`);
 }
 
 main()
-  .catch((e) => {
-    console.error("❌ Seed failed:", e);
+  .catch((error) => {
+    console.error("❌ Seed failed:", error);
     process.exit(1);
   })
   .finally(async () => {
